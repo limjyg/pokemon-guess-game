@@ -267,14 +267,27 @@ const musicToggleBtn = document.getElementById("music-toggle");
 const sparklesEl = document.getElementById("sparkles");
 const easyBtn = document.getElementById("diff-easy");
 const hardBtn = document.getElementById("diff-hard");
+const leaderboardToggleBtn = document.getElementById("leaderboard-toggle");
+const leaderboardOverlay = document.getElementById("leaderboard-overlay");
+const leaderboardCloseBtn = document.getElementById("leaderboard-close");
+const leaderboardListEl = document.getElementById("leaderboard-list");
+const leaderboardEmptyEl = document.getElementById("leaderboard-empty");
+const recordOverlay = document.getElementById("record-overlay");
+const recordForm = document.getElementById("record-form");
+const recordNameInput = document.getElementById("record-name");
+const recordMessageEl = document.getElementById("record-message");
+const recordSkipBtn = document.getElementById("record-skip");
 
 // ----- Game state -----
 let score = 0;
 let streak = 0;
+let bestStreak = 0;
 let current = null;
 let answered = false;
 let usedRecently = [];
 let difficulty = "easy";
+let sessionTrainerName = null;
+let recordDismissedScore = -1;
 
 function currentPool() {
   return POKEMON.filter((p) => p.tier === difficulty);
@@ -366,9 +379,16 @@ function handleAnswer(button, choice) {
   });
 
   if (isCorrect) {
-    score += 10 + streak * 2;
+    const basePoints = 10 + streak * 2;
+    const multiplier = current.tier === "hard" ? 2 : 1;
+    const pointsEarned = basePoints * multiplier;
+    score += pointsEarned;
     streak += 1;
-    messageEl.textContent = `🎉 Yes! It's ${current.name}! Great job, Trainer!`;
+    if (streak > bestStreak) bestStreak = streak;
+
+    messageEl.textContent = multiplier === 2
+      ? `🎉 Yes! It's ${current.name}! +${pointsEarned} pts — Rare Pokémon double points! 🔥`
+      : `🎉 Yes! It's ${current.name}! +${pointsEarned} pts — great job, Trainer!`;
     messageEl.classList.add("correct");
     spawnSparkles();
     playCorrectSound();
@@ -382,6 +402,7 @@ function handleAnswer(button, choice) {
   scoreEl.textContent = score;
   streakEl.textContent = streak;
   nextBtn.hidden = false;
+  checkForRecord();
 }
 
 function spawnSparkles() {
@@ -403,6 +424,124 @@ function spawnSparkles() {
 }
 
 nextBtn.addEventListener("click", newRound);
+
+// ----- Leaderboard: top 5 Trainers by score, then by longest streak -----
+const LEADERBOARD_KEY = "pokequiz-leaderboard";
+const MAX_LEADERBOARD = 5;
+
+function loadLeaderboard() {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(LEADERBOARD_KEY) || "[]");
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function sortLeaderboard(list) {
+  return [...list]
+    .sort((a, b) => b.score - a.score || b.streak - a.streak)
+    .slice(0, MAX_LEADERBOARD);
+}
+
+let leaderboard = sortLeaderboard(loadLeaderboard());
+
+function saveLeaderboard() {
+  localStorage.setItem(LEADERBOARD_KEY, JSON.stringify(leaderboard));
+}
+
+function renderLeaderboard() {
+  leaderboardListEl.innerHTML = "";
+  leaderboardEmptyEl.hidden = leaderboard.length > 0;
+  const medals = ["🥇", "🥈", "🥉"];
+  leaderboard.forEach((entry, i) => {
+    const li = document.createElement("li");
+    li.className = `leaderboard-row rank-${i + 1}`;
+
+    const rank = document.createElement("span");
+    rank.className = "rank";
+    rank.textContent = medals[i] || String(i + 1);
+
+    const name = document.createElement("span");
+    name.className = "name";
+    name.textContent = entry.name;
+
+    const stats = document.createElement("span");
+    stats.className = "stats";
+    stats.textContent = `⭐ ${entry.score} · 🔥 ${entry.streak}`;
+
+    li.append(rank, name, stats);
+    leaderboardListEl.appendChild(li);
+  });
+}
+renderLeaderboard();
+
+function qualifiesForLeaderboard(candidateScore, candidateStreak) {
+  if (leaderboard.length < MAX_LEADERBOARD) return candidateScore > 0;
+  const last = leaderboard[leaderboard.length - 1];
+  return candidateScore > last.score || (candidateScore === last.score && candidateStreak > last.streak);
+}
+
+function upsertLeaderboardEntry(name, scoreVal, streakVal) {
+  const idx = leaderboard.findIndex((e) => e.name.toLowerCase() === name.toLowerCase());
+  if (idx >= 0) {
+    if (scoreVal > leaderboard[idx].score || (scoreVal === leaderboard[idx].score && streakVal > leaderboard[idx].streak)) {
+      leaderboard[idx] = { name, score: scoreVal, streak: streakVal };
+    }
+  } else {
+    leaderboard.push({ name, score: scoreVal, streak: streakVal });
+  }
+  leaderboard = sortLeaderboard(leaderboard);
+  saveLeaderboard();
+  renderLeaderboard();
+}
+
+function checkForRecord() {
+  if (sessionTrainerName) {
+    upsertLeaderboardEntry(sessionTrainerName, score, bestStreak);
+    return;
+  }
+  if (score > recordDismissedScore && qualifiesForLeaderboard(score, bestStreak)) {
+    showRecordModal();
+  }
+}
+
+function showRecordModal() {
+  recordMessageEl.textContent =
+    `You scored ${score} points with a streak of ${bestStreak}! Type your Trainer name to join the Top 5!`;
+  recordNameInput.value = "";
+  recordOverlay.hidden = false;
+  recordNameInput.focus();
+}
+
+function hideRecordModal() {
+  recordOverlay.hidden = true;
+}
+
+recordForm.addEventListener("submit", (event) => {
+  event.preventDefault();
+  const name = recordNameInput.value.trim().slice(0, 14);
+  if (!name) return;
+  sessionTrainerName = name;
+  upsertLeaderboardEntry(name, score, bestStreak);
+  hideRecordModal();
+});
+
+recordSkipBtn.addEventListener("click", () => {
+  recordDismissedScore = score;
+  hideRecordModal();
+});
+
+leaderboardToggleBtn.addEventListener("click", () => {
+  renderLeaderboard();
+  leaderboardOverlay.hidden = false;
+});
+leaderboardCloseBtn.addEventListener("click", () => {
+  leaderboardOverlay.hidden = true;
+});
+leaderboardOverlay.addEventListener("click", (event) => {
+  if (event.target === leaderboardOverlay) leaderboardOverlay.hidden = true;
+});
 
 // ----- Audio: synthesized chiptune background music + sound effects -----
 // (Uses the Web Audio API to generate a cheerful original melody loop —

@@ -30,6 +30,7 @@
         <span id="streak" class="hud-value">0</span>
       </div>
       <button id="music-toggle" class="icon-btn" title="Turn music on or off">🔇</button>
+      <button id="leaderboard-toggle" class="icon-btn" title="See the Trainer Leaderboard">🏆</button>
     </div>
   </header>
 
@@ -62,6 +63,31 @@
   <footer class="footer">
     <p>Catch 'em all by guessing right! Made for young Pokémon Trainers 🌟</p>
   </footer>
+
+  <!-- Leaderboard panel -->
+  <div id="leaderboard-overlay" class="overlay" hidden>
+    <div class="overlay-card leaderboard-card">
+      <button id="leaderboard-close" class="overlay-close" aria-label="Close leaderboard">✖</button>
+      <h2 class="overlay-title">🏆 Top Trainers</h2>
+      <p class="overlay-sub">Ranked by score, then by longest streak!</p>
+      <ol id="leaderboard-list" class="leaderboard-list"></ol>
+      <p id="leaderboard-empty" class="leaderboard-empty" hidden>No champions yet — be the first to set a record!</p>
+    </div>
+  </div>
+
+  <!-- New record name-entry modal -->
+  <div id="record-overlay" class="overlay" hidden>
+    <div class="overlay-card record-card">
+      <h2 class="overlay-title">🎉 New Record!</h2>
+      <p id="record-message" class="overlay-sub">You made it onto the Top Trainers list!</p>
+      <form id="record-form" class="record-form">
+        <label for="record-name" class="record-label">Enter your Trainer name:</label>
+        <input id="record-name" class="record-input" type="text" maxlength="14" placeholder="e.g. Ash" autocomplete="off" required>
+        <button type="submit" class="record-submit">Save my record! ⭐</button>
+        <button type="button" id="record-skip" class="record-skip">Maybe later</button>
+      </form>
+    </div>
+  </div>
 
   <script src="script.js"></script>
 </body>
