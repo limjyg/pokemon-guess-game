@@ -397,12 +397,14 @@ function handleAnswer(button, choice) {
     messageEl.textContent = `Aww, that's ${current.name}! Try the next one!`;
     messageEl.classList.add("wrong");
     playWrongSound();
+    // Only offer to save a record once the streak has ended, so the
+    // name-entry prompt never interrupts an active run.
+    checkForRecord();
   }
 
   scoreEl.textContent = score;
   streakEl.textContent = streak;
   nextBtn.hidden = false;
-  checkForRecord();
 }
 
 function spawnSparkles() {
