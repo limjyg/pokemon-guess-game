@@ -6,7 +6,7 @@
 <title>Who's That Pokémon? - Guessing Game</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=4">
+<link rel="stylesheet" href="style.css?v=5">
 </head>
 <body>
   <div class="sky">
@@ -43,6 +43,9 @@
       <button id="diff-hard" class="diff-btn diff-hard" type="button">
         🔥 Hard <small>Rare &amp; Legendary</small>
       </button>
+      <button id="diff-extra" class="diff-btn diff-extra" type="button">
+        🧩 Extra Hard <small>Type the name!</small>
+      </button>
     </div>
   </div>
 
@@ -56,6 +59,12 @@
     <p id="message" class="message">Look at the shadow… who could it be?</p>
 
     <div id="options" class="options"></div>
+
+    <form id="typing-area" class="typing-area" hidden>
+      <p class="typing-hint">We've revealed 2 letters — type the rest of the name!</p>
+      <div id="letter-boxes" class="letter-boxes"></div>
+      <button type="submit" class="check-btn">Check my answer! ✏️</button>
+    </form>
 
     <button id="next-btn" class="next-btn" hidden>Next Pokémon ➜</button>
   </main>
@@ -89,6 +98,6 @@
     </div>
   </div>
 
-  <script src="script.js?v=4"></script>
+  <script src="script.js?v=5"></script>
 </body>
 </html>

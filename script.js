@@ -267,6 +267,10 @@ const musicToggleBtn = document.getElementById("music-toggle");
 const sparklesEl = document.getElementById("sparkles");
 const easyBtn = document.getElementById("diff-easy");
 const hardBtn = document.getElementById("diff-hard");
+const extraBtn = document.getElementById("diff-extra");
+const typingForm = document.getElementById("typing-area");
+const letterBoxesEl = document.getElementById("letter-boxes");
+const checkBtn = typingForm.querySelector(".check-btn");
 const leaderboardToggleBtn = document.getElementById("leaderboard-toggle");
 const leaderboardOverlay = document.getElementById("leaderboard-overlay");
 const leaderboardCloseBtn = document.getElementById("leaderboard-close");
@@ -288,9 +292,13 @@ let usedRecently = [];
 let difficulty = "easy";
 let sessionTrainerName = null;
 let recordDismissedScore = -1;
+let typingInputs = [];
 
+// "Extra Hard" reuses the rare/legendary pool — typing their names is the
+// extra layer of challenge on top of already-tricky Pokémon.
 function currentPool() {
-  return POKEMON.filter((p) => p.tier === difficulty);
+  const tier = difficulty === "easy" ? "easy" : "hard";
+  return POKEMON.filter((p) => p.tier === tier);
 }
 
 function setDifficulty(level) {
@@ -298,12 +306,14 @@ function setDifficulty(level) {
   difficulty = level;
   easyBtn.classList.toggle("active", level === "easy");
   hardBtn.classList.toggle("active", level === "hard");
+  extraBtn.classList.toggle("active", level === "extra");
   usedRecently = [];
   newRound();
 }
 
 easyBtn.addEventListener("click", () => setDifficulty("easy"));
 hardBtn.addEventListener("click", () => setDifficulty("hard"));
+extraBtn.addEventListener("click", () => setDifficulty("extra"));
 
 function pickRandom(arr, count, exclude = []) {
   const pool = arr.filter((item) => !exclude.includes(item));
@@ -327,7 +337,9 @@ function shuffle(arr) {
 function newRound() {
   answered = false;
   nextBtn.hidden = true;
-  messageEl.textContent = "Look at the shadow… who could it be?";
+  messageEl.textContent = difficulty === "extra"
+    ? "Look at the shadow… then spell out its name!"
+    : "Look at the shadow… who could it be?";
   messageEl.className = "message";
   sparklesEl.innerHTML = "";
 
@@ -344,17 +356,155 @@ function newRound() {
   imageEl.classList.remove("revealed");
   imageEl.classList.add("silhouette");
 
-  const wrongChoices = pickRandom(pool, 4, [current]);
-  const choices = shuffle([current, ...wrongChoices]);
+  if (difficulty === "extra") {
+    optionsEl.hidden = true;
+    optionsEl.innerHTML = "";
+    typingForm.hidden = false;
+    checkBtn.disabled = false;
+    buildTypingPuzzle(current.name);
+  } else {
+    typingForm.hidden = true;
+    letterBoxesEl.innerHTML = "";
+    typingInputs = [];
+    optionsEl.hidden = false;
 
-  optionsEl.innerHTML = "";
-  choices.forEach((choice) => {
-    const btn = document.createElement("button");
-    btn.className = "option-btn";
-    btn.textContent = choice.name;
-    btn.addEventListener("click", () => handleAnswer(btn, choice));
-    optionsEl.appendChild(btn);
+    const wrongChoices = pickRandom(pool, 4, [current]);
+    const choices = shuffle([current, ...wrongChoices]);
+
+    optionsEl.innerHTML = "";
+    choices.forEach((choice) => {
+      const btn = document.createElement("button");
+      btn.className = "option-btn";
+      btn.textContent = choice.name;
+      btn.addEventListener("click", () => handleAnswer(btn, choice));
+      optionsEl.appendChild(btn);
+    });
+  }
+}
+
+// ----- Extra Hard: type-the-name puzzle -----
+function buildTypingPuzzle(name) {
+  letterBoxesEl.innerHTML = "";
+  typingInputs = [];
+
+  const letterIndices = [];
+  for (let i = 0; i < name.length; i++) {
+    if (/[a-zA-Z]/.test(name[i])) letterIndices.push(i);
+  }
+  const hintCount = Math.min(2, letterIndices.length);
+  const hintIndices = new Set(pickRandom(letterIndices, hintCount));
+
+  [...name].forEach((char, i) => {
+    if (!/[a-zA-Z]/.test(char)) {
+      const span = document.createElement("span");
+      span.className = "letter-box separator";
+      span.textContent = char === " " ? " " : char;
+      letterBoxesEl.appendChild(span);
+      return;
+    }
+    if (hintIndices.has(i)) {
+      const span = document.createElement("span");
+      span.className = "letter-box hint";
+      span.textContent = char;
+      letterBoxesEl.appendChild(span);
+      return;
+    }
+    const input = document.createElement("input");
+    input.type = "text";
+    input.className = "letter-box input-box";
+    input.maxLength = 1;
+    input.autocomplete = "off";
+    input.autocapitalize = "characters";
+    input.spellcheck = false;
+    input.inputMode = "text";
+    input.dataset.answer = char.toLowerCase();
+    input.addEventListener("input", () => onLetterInput(input));
+    input.addEventListener("keydown", (event) => onLetterKeydown(event, input));
+    letterBoxesEl.appendChild(input);
+    typingInputs.push(input);
   });
+
+  if (typingInputs.length > 0) {
+    typingInputs[0].focus();
+  }
+}
+
+function onLetterInput(input) {
+  const letter = input.value.replace(/[^a-zA-Z]/g, "").slice(0, 1);
+  input.value = letter.toUpperCase();
+  if (letter) {
+    const idx = typingInputs.indexOf(input);
+    const next = typingInputs[idx + 1];
+    if (next) next.focus();
+  }
+}
+
+function onLetterKeydown(event, input) {
+  if (event.key === "Backspace" && !input.value) {
+    const idx = typingInputs.indexOf(input);
+    const prev = typingInputs[idx - 1];
+    if (prev) {
+      prev.value = "";
+      prev.focus();
+    }
+  }
+}
+
+typingForm.addEventListener("submit", (event) => {
+  event.preventDefault();
+  checkTypedAnswer();
+});
+
+function checkTypedAnswer() {
+  if (answered) return;
+  answered = true;
+
+  let allCorrect = typingInputs.length > 0;
+  typingInputs.forEach((input) => {
+    input.disabled = true;
+    if (input.value.toLowerCase() === input.dataset.answer) {
+      input.classList.add("correct");
+    } else {
+      input.classList.add("wrong");
+      allCorrect = false;
+    }
+  });
+  checkBtn.disabled = true;
+
+  imageEl.classList.remove("silhouette");
+  imageEl.classList.add("revealed");
+
+  if (allCorrect) {
+    const { pointsEarned, multiplier } = awardPoints();
+    messageEl.textContent = multiplier === 2
+      ? `🎉 Amazing spelling! It's ${current.name}! +${pointsEarned} pts — Rare Pokémon double points! 🔥`
+      : `🎉 Amazing spelling! It's ${current.name}! +${pointsEarned} pts — you're a word wizard!`;
+    messageEl.classList.add("correct");
+    spawnSparkles();
+    playCorrectSound();
+  } else {
+    streak = 0;
+    messageEl.textContent = `So close! It's actually ${current.name}. Try the next one!`;
+    messageEl.classList.add("wrong");
+    playWrongSound();
+    checkForRecord();
+  }
+
+  scoreEl.textContent = score;
+  streakEl.textContent = streak;
+  nextBtn.hidden = false;
+}
+
+// Rare/legendary Pokémon (the "hard" tier, also used for Extra Hard) are
+// worth double points — correct answers feel extra rewarding when they're tough.
+function awardPoints() {
+  const basePoints = 10 + streak * 2;
+  const multiplier = current.tier === "hard" ? 2 : 1;
+  const pointsEarned = basePoints * multiplier;
+  score += pointsEarned;
+  streak += 1;
+  if (streak > bestStreak) bestStreak = streak;
+  return { pointsEarned, multiplier };
 }
 
 function handleAnswer(button, choice) {
@@ -379,13 +529,7 @@ function handleAnswer(button, choice) {
   });
 
   if (isCorrect) {
-    const basePoints = 10 + streak * 2;
-    const multiplier = current.tier === "hard" ? 2 : 1;
-    const pointsEarned = basePoints * multiplier;
-    score += pointsEarned;
-    streak += 1;
-    if (streak > bestStreak) bestStreak = streak;
-
+    const { pointsEarned, multiplier } = awardPoints();
     messageEl.textContent = multiplier === 2
       ? `🎉 Yes! It's ${current.name}! +${pointsEarned} pts — Rare Pokémon double points! 🔥`
       : `🎉 Yes! It's ${current.name}! +${pointsEarned} pts — great job, Trainer!`;
