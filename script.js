@@ -396,8 +396,8 @@ function buildTypingPuzzle(name) {
   for (let i = 0; i < name.length; i++) {
     if (/[a-zA-Z]/.test(name[i])) letterIndices.push(i);
   }
-  // Start with exactly 1 revealed letter; the rest can be unlocked one-by-one via the hint button.
-  const hintCount = Math.min(1, letterIndices.length);
+  // Start with no revealed letters; use the hint button to unlock them one by one.
+  const hintCount = 0;
   const hintIndices = new Set(pickRandom(letterIndices, hintCount));
 
   [...name].forEach((char, i) => {
