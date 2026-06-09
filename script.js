@@ -513,10 +513,11 @@ function checkTypedAnswer() {
   imageEl.classList.add("revealed");
 
   if (allCorrect) {
-    const { pointsEarned, multiplier } = awardPoints();
-    messageEl.textContent = multiplier === 2
-      ? `🎉 Amazing spelling! It's ${current.name}! +${pointsEarned} pts — Rare Pokémon double points! 🔥`
-      : `🎉 Amazing spelling! It's ${current.name}! +${pointsEarned} pts — you're a word wizard!`;
+    const pointsEarned = 40;
+    score += pointsEarned;
+    streak += 1;
+    if (streak > bestStreak) bestStreak = streak;
+    messageEl.textContent = `🎉 Amazing spelling! It's ${current.name}! +${pointsEarned} pts — you're a word wizard! 🌟`;
     messageEl.classList.add("correct");
     spawnSparkles();
     playCorrectSound();
