@@ -271,6 +271,7 @@ const extraBtn = document.getElementById("diff-extra");
 const typingForm = document.getElementById("typing-area");
 const letterBoxesEl = document.getElementById("letter-boxes");
 const checkBtn = typingForm.querySelector(".check-btn");
+const revealHintBtn = document.getElementById("reveal-hint-btn");
 const leaderboardToggleBtn = document.getElementById("leaderboard-toggle");
 const leaderboardOverlay = document.getElementById("leaderboard-overlay");
 const leaderboardCloseBtn = document.getElementById("leaderboard-close");
@@ -293,6 +294,7 @@ let difficulty = "easy";
 let sessionTrainerName = null;
 let recordDismissedScore = -1;
 let typingInputs = [];
+let hintableInputs = [];
 
 // "Extra Hard" reuses the rare/legendary pool — typing their names is the
 // extra layer of challenge on top of already-tricky Pokémon.
@@ -361,11 +363,13 @@ function newRound() {
     optionsEl.innerHTML = "";
     typingForm.hidden = false;
     checkBtn.disabled = false;
+    revealHintBtn.disabled = false;
     buildTypingPuzzle(current.name);
   } else {
     typingForm.hidden = true;
     letterBoxesEl.innerHTML = "";
     typingInputs = [];
+    hintableInputs = [];
     optionsEl.hidden = false;
 
     const wrongChoices = pickRandom(pool, 4, [current]);
@@ -386,12 +390,14 @@ function newRound() {
 function buildTypingPuzzle(name) {
   letterBoxesEl.innerHTML = "";
   typingInputs = [];
+  hintableInputs = [];
 
   const letterIndices = [];
   for (let i = 0; i < name.length; i++) {
     if (/[a-zA-Z]/.test(name[i])) letterIndices.push(i);
   }
-  const hintCount = Math.min(2, letterIndices.length);
+  // Start with exactly 1 revealed letter; the rest can be unlocked one-by-one via the hint button.
+  const hintCount = Math.min(1, letterIndices.length);
   const hintIndices = new Set(pickRandom(letterIndices, hintCount));
 
   [...name].forEach((char, i) => {
@@ -424,10 +430,40 @@ function buildTypingPuzzle(name) {
     typingInputs.push(input);
   });
 
+  // Shuffle remaining inputs so hints are revealed in a random order
+  hintableInputs = shuffle([...typingInputs]);
+  updateRevealButton();
+
   if (typingInputs.length > 0) {
     typingInputs[0].focus();
   }
 }
+
+function updateRevealButton() {
+  const left = hintableInputs.length;
+  revealHintBtn.disabled = left === 0;
+  revealHintBtn.textContent = left > 0
+    ? `💡 Show a letter (${left} left)`
+    : "💡 No more hints";
+}
+
+function revealNextHint() {
+  if (hintableInputs.length === 0) return;
+  const input = hintableInputs.shift();
+  // Convert this input box into a hint box (same styling as the pre-revealed letter)
+  input.value = input.dataset.answer.toUpperCase();
+  input.disabled = true;
+  input.classList.remove("input-box");
+  input.classList.add("hinted");
+  // Remove from typingInputs so it won't be re-checked
+  typingInputs = typingInputs.filter((el) => el !== input);
+  updateRevealButton();
+  // Focus the next available empty input
+  const nextEmpty = typingInputs.find((el) => !el.value);
+  if (nextEmpty) nextEmpty.focus();
+}
+
+revealHintBtn.addEventListener("click", revealNextHint);
 
 function onLetterInput(input) {
   const letter = input.value.replace(/[^a-zA-Z]/g, "").slice(0, 1);
@@ -459,7 +495,8 @@ function checkTypedAnswer() {
   if (answered) return;
   answered = true;
 
-  let allCorrect = typingInputs.length > 0;
+  // typingInputs holds only the user-typed boxes (hint-revealed ones were removed)
+  let allCorrect = true;
   typingInputs.forEach((input) => {
     input.disabled = true;
     if (input.value.toLowerCase() === input.dataset.answer) {
@@ -470,6 +507,7 @@ function checkTypedAnswer() {
     }
   });
   checkBtn.disabled = true;
+  revealHintBtn.disabled = true;
 
   imageEl.classList.remove("silhouette");
   imageEl.classList.add("revealed");

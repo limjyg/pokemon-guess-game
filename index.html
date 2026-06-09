@@ -6,7 +6,7 @@
 <title>Who's That Pokémon? - Guessing Game</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=5">
+<link rel="stylesheet" href="style.css?v=6">
 </head>
 <body>
   <div class="sky">
@@ -61,9 +61,12 @@
     <div id="options" class="options"></div>
 
     <form id="typing-area" class="typing-area" hidden>
-      <p class="typing-hint">We've revealed 2 letters — type the rest of the name!</p>
+      <p class="typing-hint">1 letter revealed — spell out the rest!</p>
       <div id="letter-boxes" class="letter-boxes"></div>
-      <button type="submit" class="check-btn">Check my answer! ✏️</button>
+      <div class="typing-actions">
+        <button type="button" id="reveal-hint-btn" class="reveal-btn">💡 Show a letter</button>
+        <button type="submit" class="check-btn">Check ✏️</button>
+      </div>
     </form>
 
     <button id="next-btn" class="next-btn" hidden>Next Pokémon ➜</button>
@@ -98,6 +101,6 @@
     </div>
   </div>
 
-  <script src="script.js?v=5"></script>
+  <script src="script.js?v=6"></script>
 </body>
 </html>
