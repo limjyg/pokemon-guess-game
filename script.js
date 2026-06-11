@@ -610,7 +610,22 @@ function spawnSparkles() {
 
 nextBtn.addEventListener("click", newRound);
 
-// ----- Leaderboard: top 5 Trainers by score, then by longest streak -----
+// ----- Leaderboard: global Top 5 via Firebase Realtime Database -----
+//
+// SETUP (one-time, takes ~3 minutes):
+// 1. Go to https://console.firebase.google.com and sign in with Google.
+// 2. Click "Add project" → give it a name → hit Continue → Create project.
+// 3. In the left sidebar: Build → Realtime Database → Create Database.
+// 4. Choose any region → select "Start in test mode" → Enable.
+// 5. Copy the database URL shown (e.g. https://your-app-default-rtdb.firebaseio.com).
+// 6. Paste it below, replacing the empty string.
+// 7. Redeploy (git add -A && git commit -m "add firebase" && git push).
+//
+// While FIREBASE_DB_URL is empty the game still works — scores are saved
+// locally in the browser (localStorage) but won't sync across devices.
+
+const FIREBASE_DB_URL = ""; // ← paste your Realtime Database URL here
+
 const LEADERBOARD_KEY = "pokequiz-leaderboard";
 const MAX_LEADERBOARD = 5;
 
@@ -631,8 +646,37 @@ function sortLeaderboard(list) {
 
 let leaderboard = sortLeaderboard(loadLeaderboard());
 
-function saveLeaderboard() {
+function saveLocalLeaderboard() {
   localStorage.setItem(LEADERBOARD_KEY, JSON.stringify(leaderboard));
+}
+
+// Fetch latest leaderboard from Firebase; returns sorted array or null on failure.
+async function fetchGlobalLeaderboard() {
+  if (!FIREBASE_DB_URL) return null;
+  try {
+    const res = await fetch(`${FIREBASE_DB_URL}/leaderboard.json`);
+    if (!res.ok) return null;
+    const data = await res.json();
+    if (!data) return [];
+    const entries = Array.isArray(data) ? data : Object.values(data);
+    return sortLeaderboard(entries.filter((e) => e && e.name));
+  } catch {
+    return null;
+  }
+}
+
+// Push current leaderboard to Firebase (fire-and-forget, falls back silently).
+async function pushGlobalLeaderboard() {
+  if (!FIREBASE_DB_URL) return;
+  try {
+    await fetch(`${FIREBASE_DB_URL}/leaderboard.json`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(leaderboard),
+    });
+  } catch {
+    // Network error — localStorage already holds the latest data.
+  }
 }
 
 function renderLeaderboard() {
@@ -659,7 +703,16 @@ function renderLeaderboard() {
     leaderboardListEl.appendChild(li);
   });
 }
+
+// Boot: immediately show cached scores then silently sync from Firebase.
 renderLeaderboard();
+fetchGlobalLeaderboard().then((global) => {
+  if (global !== null) {
+    leaderboard = global;
+    saveLocalLeaderboard();
+    renderLeaderboard();
+  }
+});
 
 function qualifiesForLeaderboard(candidateScore, candidateStreak) {
   if (leaderboard.length < MAX_LEADERBOARD) return candidateScore > 0;
@@ -677,8 +730,9 @@ function upsertLeaderboardEntry(name, scoreVal, streakVal) {
     leaderboard.push({ name, score: scoreVal, streak: streakVal });
   }
   leaderboard = sortLeaderboard(leaderboard);
-  saveLeaderboard();
+  saveLocalLeaderboard();
   renderLeaderboard();
+  pushGlobalLeaderboard(); // sync to Firebase in the background
 }
 
 function checkForRecord() {
@@ -717,9 +771,16 @@ recordSkipBtn.addEventListener("click", () => {
   hideRecordModal();
 });
 
-leaderboardToggleBtn.addEventListener("click", () => {
-  renderLeaderboard();
+leaderboardToggleBtn.addEventListener("click", async () => {
+  renderLeaderboard(); // show cached data immediately
   leaderboardOverlay.hidden = false;
+  // Refresh from Firebase so players always see the latest global scores.
+  const global = await fetchGlobalLeaderboard();
+  if (global !== null) {
+    leaderboard = global;
+    saveLocalLeaderboard();
+    renderLeaderboard();
+  }
 });
 leaderboardCloseBtn.addEventListener("click", () => {
   leaderboardOverlay.hidden = true;
