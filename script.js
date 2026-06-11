@@ -295,6 +295,7 @@ let sessionTrainerName = null;
 let recordDismissedScore = -1;
 let typingInputs = [];
 let hintableInputs = [];
+let hintsUsed = 0;
 
 // "Extra Hard" reuses the rare/legendary pool — typing their names is the
 // extra layer of challenge on top of already-tricky Pokémon.
@@ -364,6 +365,7 @@ function newRound() {
     typingForm.hidden = false;
     checkBtn.disabled = false;
     revealHintBtn.disabled = false;
+    hintsUsed = 0;
     buildTypingPuzzle(current.name);
   } else {
     typingForm.hidden = true;
@@ -441,14 +443,18 @@ function buildTypingPuzzle(name) {
 
 function updateRevealButton() {
   const left = hintableInputs.length;
-  revealHintBtn.disabled = left === 0;
-  revealHintBtn.textContent = left > 0
-    ? `💡 Show a letter (${left} left)`
-    : "💡 No more hints";
+  // Stop at 1 remaining so the player must always solve at least one letter.
+  revealHintBtn.disabled = left <= 1;
+  revealHintBtn.textContent = left > 1
+    ? `💡 Show a letter (-5 pts, ${left - 1} hint${left - 1 === 1 ? "" : "s"} left)`
+    : left === 1
+      ? "💡 Last letter — solve it yourself!"
+      : "💡 No more hints";
 }
 
 function revealNextHint() {
-  if (hintableInputs.length === 0) return;
+  if (hintableInputs.length <= 1) return;
+  hintsUsed += 1;
   const input = hintableInputs.shift();
   // Convert this input box into a hint box (same styling as the pre-revealed letter)
   input.value = input.dataset.answer.toUpperCase();
@@ -513,11 +519,13 @@ function checkTypedAnswer() {
   imageEl.classList.add("revealed");
 
   if (allCorrect) {
-    const pointsEarned = 40;
+    const pointsEarned = Math.max(5, 40 - hintsUsed * 5);
     score += pointsEarned;
     streak += 1;
     if (streak > bestStreak) bestStreak = streak;
-    messageEl.textContent = `🎉 Amazing spelling! It's ${current.name}! +${pointsEarned} pts — you're a word wizard! 🌟`;
+    messageEl.textContent = hintsUsed === 0
+      ? `🎉 Amazing! You spelled ${current.name} with NO hints! +${pointsEarned} pts! 🌟`
+      : `🎉 It's ${current.name}! +${pointsEarned} pts (${hintsUsed} hint${hintsUsed === 1 ? "" : "s"} used) 💡`;
     messageEl.classList.add("correct");
     spawnSparkles();
     playCorrectSound();
